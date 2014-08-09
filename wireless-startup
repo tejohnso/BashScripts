@@ -1,0 +1,48 @@
+#!/usr/bin/bash
+readarray -t SSIDS < /root/.scripts/SSIDS
+readarray -t PWS < /root/.scripts/Passwords
+INTERFACE=$(iw dev |grep Interface |cut -d ' ' -f 2)
+INDEX=-1
+
+ip link set $INTERFACE up
+
+haveactiveSSIDlist () {
+  ACTIVESSIDS=$(iw $INTERFACE scan | grep SSID | cut -d ' ' -f 2)
+  echo $ACTIVESSIDS |grep --invert-match "command failed:" &>/dev/null
+}
+
+until haveactiveSSIDlist ; do
+  sleep 3
+done
+
+tryconnect () {
+  if [ $(ps aux |grep wpa_supplicant |wc -l) -ne "1" ] ; then killwpa; fi
+  ip link set $INTERFACE down
+  ip link set $INTERFACE up
+  sleep 2
+  echo "Starting wpa_supplicant on $INTERFACE using ${SSIDS[$INDEX]}"
+  wpa_supplicant -B -i $INTERFACE -c<(wpa_passphrase "${SSIDS[$INDEX]}" "${PWS[$INDEX]}")
+}
+
+connectionexists () {
+  ip link |grep $INTERFACE |grep 'state UP' &>/dev/null
+}
+
+killwpa () {
+  kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 2|head -n 1)
+}
+
+until connectionexists ; do
+  INDEX=$((INDEX + 1))
+  if [ $INDEX -eq ${#SSIDS[@]} ]; then break ; fi
+  if ! (echo $ACTIVESSIDS |grep ${SSIDS[$INDEX]} &>/dev/null) ; then continue; fi
+  tryconnect
+  sleep 7
+done
+
+dhcpcd &>/dev/null
+
+#if using wireless then bring down wired interface so ntpd doesn't keep trying to use it every 5mins
+if connectionexists; then ip link set $(ip link |grep "state DOWN" |cut -d ' ' -f 2 |cut -d ':' -f 1) down; fi
+connectionexists
+exit $?

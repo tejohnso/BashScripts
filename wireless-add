@@ -1,0 +1,7 @@
+#!/usr/bin/bash 
+/root/.scripts/wireless-shutdown
+
+echo $1 >> /root/.scripts/SSIDS
+echo $2 >> /root/.scripts/Passwords
+
+/root/.scripts/wireless-startup

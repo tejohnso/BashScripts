@@ -1,0 +1,5 @@
+INTERFACE=$(iw dev |grep Interface |cut -d ' ' -f 2)
+
+kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 2|head -n 1)
+ip link set $INTERFACE down
+exit 0
