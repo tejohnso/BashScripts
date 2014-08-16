@@ -1,5 +1,11 @@
+#!/bin/bash
+echo "MESSAGE=Starting $0" |logger --journald
 INTERFACE=$(iw dev |grep Interface |cut -d ' ' -f 2)
 
-kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 2|head -n 1)
+killwpa () {
+  kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 2|head -n 1)
+}
+
+if [ $(ps aux |grep wpa_supplicant |wc -l) -ne "1" ] ; then killwpa; fi
 ip link set $INTERFACE down
 exit 0
