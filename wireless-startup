@@ -1,10 +1,19 @@
 #!/usr/bin/bash
+echo "MESSAGE=Starting $0" |logger --journald
 readarray -t SSIDS < /root/.scripts/SSIDS
 readarray -t PWS < /root/.scripts/Passwords
-INTERFACE=$(iw dev |grep Interface |cut -d ' ' -f 2)
 INDEX=-1
 
+until (iw dev |grep Interface &>/dev/null) ; do
+  echo "MESSAGE=Waiting for wireless interface..." |logger --journald
+  sleep 0.3
+done
+
+INTERFACE=$(iw dev |grep Interface |cut -d ' ' -f 2)
+echo "MESSAGE=Wireless interface is $INTERFACE" |logger --journald
+iw dev $INTERFACE set type ibss
 ip link set $INTERFACE up
+sleep 0.5
 
 haveactiveSSIDlist () {
   ACTIVESSIDS=$(iw $INTERFACE scan | grep SSID | cut -d ' ' -f 2)
@@ -12,24 +21,27 @@ haveactiveSSIDlist () {
 }
 
 until haveactiveSSIDlist ; do
-  sleep 3
+  echo "MESSAGE=Waiting for active SSID list" |logger --journald
+  sleep 0.5
 done
+
+echo "MESSAGE=Retrieved active SSID list" |logger --journald
+
+killwpa () {
+  kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 2|head -n 1)
+  ip link set $INTERFACE down
+  sleep 0.5
+  ip link set $INTERFACE up
+}
 
 tryconnect () {
   if [ $(ps aux |grep wpa_supplicant |wc -l) -ne "1" ] ; then killwpa; fi
-  ip link set $INTERFACE down
-  ip link set $INTERFACE up
-  sleep 2
-  echo "Starting wpa_supplicant on $INTERFACE using ${SSIDS[$INDEX]}"
+  echo "MESSAGE=Starting wpa_supplicant on $INTERFACE using ${SSIDS[$INDEX]}" |logger --journald
   wpa_supplicant -B -i $INTERFACE -c<(wpa_passphrase "${SSIDS[$INDEX]}" "${PWS[$INDEX]}")
 }
 
 connectionexists () {
   ip link |grep $INTERFACE |grep 'state UP' &>/dev/null
-}
-
-killwpa () {
-  kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 2|head -n 1)
 }
 
 until connectionexists ; do
@@ -43,6 +55,9 @@ done
 dhcpcd &>/dev/null
 
 #if using wireless then bring down wired interface so ntpd doesn't keep trying to use it every 5mins
-if connectionexists; then ip link set $(ip link |grep "state DOWN" |cut -d ' ' -f 2 |cut -d ':' -f 1) down; fi
+if connectionexists; then
+  ip link set $(ip link |grep "state DOWN" |cut -d ' ' -f 2 |cut -d ':' -f 1) down
+  echo "MESSAGE=wireless startup success" |logger --journald
+fi
 connectionexists
 exit $?
