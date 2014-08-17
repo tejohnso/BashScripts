@@ -16,7 +16,7 @@ ip link set $INTERFACE up
 sleep 0.5
 
 haveactiveSSIDlist () {
-  ACTIVESSIDS=$(iw $INTERFACE scan | grep SSID | cut -d ' ' -f 2)
+  ACTIVESSIDS=$(iw $INTERFACE scan | grep SSID |sed "s/$/~/")
   echo $ACTIVESSIDS |grep --invert-match "command failed:" &>/dev/null
 }
 
@@ -47,17 +47,16 @@ connectionexists () {
 until connectionexists ; do
   INDEX=$((INDEX + 1))
   if [ $INDEX -eq ${#SSIDS[@]} ]; then break ; fi
-  if ! (echo $ACTIVESSIDS |grep ${SSIDS[$INDEX]} &>/dev/null) ; then continue; fi
+  if ! (echo $ACTIVESSIDS |grep "SSID:\ ${SSIDS[$INDEX]}~" &>/dev/null) ; then continue; fi
   tryconnect
   sleep 7
 done
-
-dhcpcd &>/dev/null
 
 #if using wireless then bring down wired interface so ntpd doesn't keep trying to use it every 5mins
 if connectionexists; then
   ip link set $(ip link |grep "state DOWN" |cut -d ' ' -f 2 |cut -d ':' -f 1) down
   echo "MESSAGE=wireless startup success" |logger --journald
+  dhcpcd &>/dev/null
 fi
 connectionexists
 exit $?
