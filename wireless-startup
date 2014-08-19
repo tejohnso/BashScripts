@@ -44,12 +44,21 @@ connectionexists () {
   ip link |grep $INTERFACE |grep 'state UP' &>/dev/null
 }
 
+waitforwpa () {
+  local waitcounter=0
+  while ! connectionexists; do
+    waitcounter=$((waitcounter + 1))
+    if [[ $waitcounter -eq 14 ]]; then break; fi
+    sleep 0.5
+  done
+}
+
 until connectionexists ; do
   INDEX=$((INDEX + 1))
   if [ $INDEX -eq ${#SSIDS[@]} ]; then break ; fi
   if ! (echo $ACTIVESSIDS |grep "SSID:\ ${SSIDS[$INDEX]}~" &>/dev/null) ; then continue; fi
   tryconnect
-  sleep 7
+  waitforwpa
 done
 
 #if using wireless then bring down wired interface so ntpd doesn't keep trying to use it every 5mins
