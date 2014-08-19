@@ -3,7 +3,11 @@ echo "MESSAGE=Starting $0" |logger --journald
 INTERFACE=$(iw dev |grep Interface |cut -d ' ' -f 2)
 
 killwpa () {
-  kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 2|head -n 1)
+  kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 2|head -n 1) &>/dev
+/null
+  if [[ $? -ne 0 ]];then
+    kill $(ps -axo pid,command |grep wpa_supplicant |tr -s [:blank:] |cut -d ' ' -f 1|head -n 1)
+  fi
 }
 
 if [ $(ps aux |grep wpa_supplicant |wc -l) -ne "1" ] ; then killwpa; fi
