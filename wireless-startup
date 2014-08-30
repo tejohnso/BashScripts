@@ -65,7 +65,7 @@ done
 if connectionexists; then
   ip link set $(ip link |grep "state DOWN" |cut -d ' ' -f 2 |cut -d ':' -f 1) down
   echo "MESSAGE=wireless startup success" |logger --journald
-  dhcpcd &>/dev/null
+  dhcpcd $INTERFACE &>/dev/null
 fi
 connectionexists
 exit $?
